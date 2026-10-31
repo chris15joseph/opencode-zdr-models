@@ -1,0 +1,26 @@
+{
+  "name": "opencode-zero-retention-models",
+  "version": "1.0.0",
+  "description": "OpenCode plugin: only list models in /models whose data retention policy is 0 days. Policies are fetched live from the OpenCode docs before each session.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "dependencies": {
+    "@opencode/plugin": "latest"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "privacy",
+    "zero-retention"
+  ],
+  "license": "MIT"
+}
