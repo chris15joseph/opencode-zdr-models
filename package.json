@@ -24,7 +24,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/",
+    "test": "node --import ./scripts/register-ts.mjs --test test/*.test.ts",
     "prepublishOnly": "npm run typecheck && npm test"
   },
   "repository": {
