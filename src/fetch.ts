@@ -56,9 +56,21 @@ interface Tag {
   end: number
 }
 
-/** Read the next `<...>` tag, respecting quoted attributes. */
+/** Read the next `<...>` tag, respecting quoted attributes and comments. */
 function readTag(html: string, start: number): Tag | undefined {
   if (html[start] !== "<") return undefined
+  const next = html[start + 1]
+  // A bare "<" (for example "a < b") is text, not an opening tag.
+  if (!next || !/[a-zA-Z/!?]/.test(next)) return undefined
+  if (html.startsWith("<!--", start)) {
+    const close = html.indexOf("-->", start + 4)
+    return {
+      name: "!--",
+      closing: false,
+      start,
+      end: close < 0 ? html.length : close + 3,
+    }
+  }
   let quote: string | undefined
   let i = start + 1
   for (; i < html.length; i++) {
@@ -109,14 +121,19 @@ interface Cell {
 
 function parseCellAttributes(tagText: string): { rowspan: number; colspan: number } {
   const span = (name: string) => {
-    const match = tagText.match(new RegExp(`\\b${name}\\s*=\\s*["']?(\\d+)`, "i"))
+    const match = tagText.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*["']?(\\d+)`, "i"))
     const value = match ? Number(match[1]) : 1
     return Number.isFinite(value) && value > 0 ? Math.min(value, 100) : 1
   }
   return { rowspan: span("rowspan"), colspan: span("colspan") }
 }
 
-/** Find the end of a cell, ignoring nested tables and nested cells. */
+/**
+ * Find the end of a cell, ignoring nested tables and nested cells.
+ *
+ * Missing `</td>`/`</th>` are legal HTML: the next cell opening tag implicitly
+ * closes the current one, so return its start without consuming it.
+ */
 function findCellEnd(html: string, contentStart: number): { contentEnd: number; end: number } {
   let cellDepth = 1
   let tableDepth = 0
@@ -129,10 +146,27 @@ function findCellEnd(html: string, contentStart: number): { contentEnd: number; 
       i = lt + 1
       continue
     }
-    if (tag.name === "table") tableDepth += tag.closing ? -1 : 1
+    if (!tag.name) {
+      i = tag.end
+      continue
+    }
+    if (tag.name === "table") {
+      tableDepth += tag.closing ? -1 : 1
+      if (tableDepth < 0) return { contentEnd: tag.start, end: tag.start }
+      i = tag.end
+      continue
+    }
     if (tableDepth === 0 && (tag.name === "td" || tag.name === "th")) {
-      cellDepth += tag.closing ? -1 : 1
-      if (cellDepth === 0) return { contentEnd: tag.start, end: tag.end }
+      if (!tag.closing) {
+        if (cellDepth === 1) {
+          // The next cell starts here; do not consume its opening tag.
+          return { contentEnd: tag.start, end: tag.start }
+        }
+        cellDepth++
+      } else {
+        cellDepth--
+        if (cellDepth === 0) return { contentEnd: tag.start, end: tag.end }
+      }
     }
     i = tag.end
   }
@@ -177,7 +211,8 @@ function parseTableRows(inner: string): string[][] {
       continue
     }
     if (tag.name === "tr" && !tag.closing) {
-      // Find this row's matching </tr> at table depth 0.
+      // Find this row's end at table depth 1. Missing `</tr>` is legal HTML:
+      // the next `<tr>` opening implicitly closes the current row.
       let depth = 1
       let j = tag.end
       let rowEnd = inner.length
@@ -189,10 +224,25 @@ function parseTableRows(inner: string): string[][] {
           j = next + 1
           continue
         }
-        if (rowTag.name === "table") depth += rowTag.closing ? -1 : 1
-        if (depth === 1 && rowTag.name === "tr" && rowTag.closing) {
-          rowEnd = rowTag.start
+        if (!rowTag.name) {
           j = rowTag.end
+          continue
+        }
+        if (rowTag.name === "table") {
+          depth += rowTag.closing ? -1 : 1
+          if (depth <= 0) {
+            rowEnd = rowTag.start
+            j = rowTag.start
+            break
+          }
+          j = rowTag.end
+          continue
+        }
+        if (depth === 1 && rowTag.name === "tr") {
+          rowEnd = rowTag.start
+          // Consume an explicit close; leave an implicit next row to be
+          // parsed by the outer loop.
+          j = rowTag.closing ? rowTag.end : rowTag.start
           break
         }
         j = rowTag.end
@@ -279,9 +329,22 @@ const NAMED_ENTITIES: Record<string, string> = {
   ldquo: "“",
   rdquo: "”",
   hellip: "…",
+  middot: "·",
+  bull: "•",
+  times: "×",
+  divide: "÷",
   copy: "©",
   reg: "®",
   trade: "™",
+  euro: "€",
+  pound: "£",
+  cent: "¢",
+  sect: "§",
+  deg: "°",
+  plusmn: "±",
+  frac12: "½",
+  frac14: "¼",
+  frac34: "¾",
 }
 
 /**
@@ -325,8 +388,21 @@ export function stripTags(html: string): string {
       i = lt + 1
       continue
     }
+    // Comments are not text content.
+    if (tag.name === "!--") {
+      out += " "
+      i = tag.end
+      continue
+    }
     // Block-level tags act as separators so adjacent cells do not merge words.
-    if (/^(br|hr|p|div|li|tr|td|th|h[1-6]|section|article)$/.test(tag.name)) out += " "
+    if (
+      tag.name === "" ||
+      /^(br|hr|p|div|li|tr|td|th|thead|tbody|tfoot|caption|h[1-6]|section|article|ul|ol|dl|dt|dd|blockquote|pre|table)$/.test(
+        tag.name,
+      )
+    ) {
+      out += " "
+    }
     i = tag.end
   }
   return decodeEntities(out).replace(/\s+/g, " ").trim()
@@ -348,11 +424,13 @@ export function nameKey(name: string): string {
 export function parseNameToIdMap(tables: string[][][]): Map<string, string> {
   const map = new Map<string, string>()
   const ambiguous = new Set<string>()
+  const nameHeaders = new Set(["model", "modelname", "name", "displayname", "display"])
+  const idHeaders = new Set(["modelid", "id", "slug", "modelslug", "modelidslug"])
   for (const rows of tables) {
     for (let headerIndex = 0; headerIndex < Math.min(rows.length, 5); headerIndex++) {
       const header = rows[headerIndex]?.map(nameKey) ?? []
-      const nameIdx = header.findIndex((cell) => cell === "model" || cell === "modelname")
-      const idIdx = header.findIndex((cell) => cell === "modelid" || cell === "id")
+      const nameIdx = header.findIndex((cell) => nameHeaders.has(cell))
+      const idIdx = header.findIndex((cell) => idHeaders.has(cell))
       if (nameIdx < 0 || idIdx < 0 || nameIdx === idIdx) continue
       for (const row of rows.slice(headerIndex + 1)) {
         const name = row[nameIdx]?.trim()
@@ -386,32 +464,65 @@ function dedupePolicies(policies: readonly ScopedPolicy[]): ScopedPolicy[] {
   return [...toPolicyMap(policies).values()].flatMap((provider) => [...provider.values()])
 }
 
-/** Classify a "Data retention" table cell. Multiple signals take the worst. */
+/**
+ * Affirmative training signals. Negated phrases ("not used for training") are
+ * explicitly excluded so a privacy baseline is not misread as training.
+ */
+function hasTrainingSignal(text: string): boolean {
+  const value = text.toLowerCase()
+  if (
+    /\bnot\s+(?:be\s+)?used\s+(?:to\s+)?(?:improve|train)|\bnot\s+used\s+for\s+(?:model\s+)?(?:training|improvement)|\bno\s+training\b/.test(
+      value,
+    )
+  ) {
+    return false
+  }
+  return (
+    /\b(?:may|can|might|will)\s+(?:be\s+)?(?:retained\s+(?:and\s+)?)?(?:be\s+)?used\s+(?:to\s+)?(?:improve|train)\b/.test(
+      value,
+    ) ||
+    /\bused\s+to\s+(?:improve|train)\b/.test(value) ||
+    /\bused\s+for\s+(?:model\s+)?(?:training|improvement)\b/.test(value) ||
+    /\bpermission\s+to\s+use\s+your\s+prompts\b[\s\S]{0,120}\b(?:train|improve)\b/.test(value) ||
+    /\btrain\s+(?:future|our|the)\s+models?\b/.test(value)
+  )
+}
+
+/**
+ * Classify a "Data retention" table cell.
+ *
+ * Every recognized signal is considered and the most restrictive wins:
+ * `training` > `not-zdr`/`unknown` > `30d` > `zero`. A multi-value cell such as
+ * "0 days, 30 days" therefore becomes `30d`, and an unrecognized day count
+ * (7/14/60 days) fails closed as `unknown`.
+ */
 export function classifyRetentionCell(cell: string): Retention | undefined {
   const text = stripTags(cell).toLowerCase()
   if (!text) return undefined
 
+  if (hasTrainingSignal(text)) return "training"
+
   // Negation must be checked before any positive "zero" match.
   if (
-    /\bnot\s+zdr\b|\bnon[- ]zero\b|\bnot\s+zero\b|\bno\s+zero\b|\bdoes(?:n't| not)\s+(?:offer|provide)\s+(?:zero|0)\b|\bzero[- ](?:data[- ])?retention\s+(?:is\s+)?not\b/.test(
+    /\bnot\s+(?:an?\s+)?(?:0\s*[- ]?\s*days?|zero)(?:[- ](?:data[- ])?retention)?\b|\b(?:no|never|without)\s+(?:an?\s+)?(?:0\s*[- ]?\s*days?|zero)(?:[- ](?:data[- ])?retention)?\b|\bnon[- ]?zero\b|\bnot\s+zdr\b|\bzero[- ](?:data[- ])?retention\s+(?:is\s+)?not\b|\bdoes(?:n't| not)\s+(?:offer|provide|support)\s+(?:zero|0\s*[- ]?(?:days?|retention))\b/.test(
       text,
     )
   ) {
     return "not-zdr"
   }
 
-  const dayValues = [...text.matchAll(/(\d+)\s*(?:days?|d)\b/g)].map((match) => Number(match[1]))
+  const dayValues = [...text.matchAll(/(\d+)\s*[- ]?\s*(?:days?|d)\b/g)].map((match) =>
+    Number(match[1]),
+  )
   if (dayValues.length > 0) {
-    const worstDays = Math.max(...dayValues)
-    if (worstDays === 0) return "zero"
-    if (worstDays === 30) return "30d"
-    // A published value we do not model (7/14/60 days) fails closed.
-    return "unknown"
+    // A day count we do not model is not safe to round down to 30d.
+    if (dayValues.some((value) => value !== 0 && value !== 30)) return "unknown"
+    return Math.max(...dayValues) === 0 ? "zero" : "30d"
   }
 
-  if (/\bzero[- ](?:data[- ])?retention\b/.test(text)) return "zero"
+  if (/\bzero[- ](?:data[- ])?retention\b|\bzero\s+days?\b/.test(text)) return "zero"
   if (/\bnot\s+zdr\b/.test(text)) return "not-zdr"
-  if (/retained|retention|logged|trial|\blog\b|not used for training/.test(text)) {
+  if (/retained|retention|logged|trial|\blog\b|not used for training|limited use|abuse monitoring/.test(text)) {
     return "not-zdr"
   }
   return undefined
@@ -437,11 +548,20 @@ function conditionalFromFootnote(
 ): { validUntil?: string; conditions?: string } {
   if (!cell.includes("*")) return {}
   const plain = stripTags(html)
-  const family = name.split(/\s+/)[0] ?? name
-  const index = plain.toLowerCase().indexOf(`${family.toLowerCase()}:`)
+  const lowerPlain = plain.toLowerCase()
+  const candidates = [
+    name,
+    name.replace(/\s*\(.*?\)\s*/g, "").trim(),
+    name.split(/\s+/)[0] ?? name,
+  ].filter((candidate) => candidate.length > 0)
+  let index = -1
+  for (const candidate of candidates) {
+    index = lowerPlain.indexOf(`${candidate.toLowerCase()}:`)
+    if (index >= 0) break
+  }
   if (index < 0) return { conditions: "conditional zero; footnote not found" }
   const snippet = plain.slice(index, index + 500)
-  const dateMatch = snippet.match(/valid through ([A-Z][a-z]+ \d{1,2}, \d{4})/i)
+  const dateMatch = snippet.match(/valid through\s+([A-Za-z]+ \d{1,2}, \d{4})/i)
   const conditions = snippet.split(/(?<=\.)\s+/)[0]?.slice(0, 300) ?? snippet.slice(0, 300)
   if (!dateMatch) return { conditions: `${conditions} (validity window not found)` }
   const parsed = Date.parse(dateMatch[1])
@@ -451,16 +571,22 @@ function conditionalFromFootnote(
   }
 }
 
+export interface ParseOptions {
+  /** Injectable clock for deterministic conditional-footnote tests. */
+  now?: number
+}
+
 /**
  * Parse the Go privacy table: "Model | Model training | Data retention".
  * Training dominates retention. Names are converted to model IDs through the
  * endpoints table; rows without a mapping are skipped rather than guessed.
  */
-export function parseGoPrivacy(html: string): ScopedPolicy[] {
+export function parseGoPrivacy(html: string, options: ParseOptions = {}): ScopedPolicy[] {
   const tables = extractTables(html)
   const nameToId = parseNameToIdMap(tables)
   const policies: ScopedPolicy[] = []
-  const today = new Date().toISOString().slice(0, 10)
+  const now = options.now ?? Date.now()
+  const today = new Date(now).toISOString().slice(0, 10)
 
   for (const rows of tables) {
     for (let headerIndex = 0; headerIndex < Math.min(rows.length, 5); headerIndex++) {
@@ -476,7 +602,7 @@ export function parseGoPrivacy(html: string): ScopedPolicy[] {
 
       for (const row of rows.slice(headerIndex + 1)) {
         const name = row[modelIdx]?.trim()
-        if (!name || nameKey(name) === "model") continue
+        if (!name || /^(?:model|modelname|name)$/.test(nameKey(name))) continue
         const trainingRaw = trainingIdx >= 0 ? (row[trainingIdx] ?? "").trim() : ""
         const retentionRaw = (row[retentionIdx] ?? "").trim()
         if (!trainingRaw && !retentionRaw) continue
@@ -491,17 +617,25 @@ export function parseGoPrivacy(html: string): ScopedPolicy[] {
         let final: Retention =
           training === "training" ? "training" : (worstRetention(training, retention) ?? "unknown")
         const conditional = conditionalFromFootnote(html, name, retentionRaw)
-        if (final === "zero" && retentionRaw.includes("*") && !conditional.validUntil) {
-          // A conditional zero without a parsed validity window is not safe to
-          // treat as unconditional.
-          final = "unknown"
+        if (final === "zero" && retentionRaw.includes("*")) {
+          const validUntil = conditional.validUntil
+          const expiry = validUntil ? Date.parse(validUntil) : Number.NaN
+          if (!Number.isFinite(expiry) || expiry < now) {
+            // A conditional zero without a current validity window is not safe
+            // to treat as unconditional.
+            final = "unknown"
+          }
         }
         const reasonParts = [
           `Go privacy table (live ${today}): training="${trainingRaw || "?"}", retention="${retentionRaw || "?"}"`,
         ]
         if (conditional.conditions) reasonParts.push(conditional.conditions)
         if (training && training !== retention) reasonParts.push("training dominates retention")
-        if (final === "unknown") reasonParts.push("value could not be classified; fail-closed")
+        if (final === "unknown" && retentionRaw.includes("*")) {
+          reasonParts.push("conditional zero is expired or its validity window is unknown; fail-closed")
+        } else if (final === "unknown") {
+          reasonParts.push("value could not be classified; fail-closed")
+        }
 
         policies.push({
           providerID: "opencode-go",
@@ -528,28 +662,13 @@ const API_FAMILIES: Record<string, string> = {
 
 function consoleRetention(text: string, family?: string): Retention {
   // Training is the strongest signal and can appear alongside "0 days".
-  if (
-    /may be (?:retained and )?used to (?:improve|train)|\bused to (?:improve|train)\b|\btrain (?:future|our|the) model\b/i.test(
-      text,
-    )
-  ) {
-    return "training"
-  }
-  // Negation before positive zero matching.
-  if (
-    /\bnot\s+zdr\b|\bnot\s+zero\b|\bnon[- ]zero\b|\bno\s+zero\b|\bdoes(?:n't| not)\s+(?:offer|provide)\s+(?:zero|0)\b|\bzero[- ](?:data[- ])?retention\s+(?:is\s+)?not\b/i.test(
-      text,
-    )
-  ) {
-    return "not-zdr"
-  }
-  if (/\bretained (?:for|up to) 30 days\b|\bretains it for 30 days\b|\bretained for 30 days for safety\b/i.test(text)) {
-    return "30d"
-  }
-  if (/\bzero[- ](?:data[- ])?retention\b|\b0\s*days?\b/i.test(text)) return "zero"
-  if (/\btrial use only\b|\blogged for security\b|\bnot used for training\b|\bdata (?:is )?retained\b/i.test(text)) {
-    return "not-zdr"
-  }
+  if (hasTrainingSignal(text)) return "training"
+
+  const classified = classifyRetentionCell(text)
+  if (classified) return classified
+
+  // The Mistral bullet only says data is retained under Mistral's policy; it
+  // never promises ZDR, so the family default is not-zdr.
   if (family === "mistral") return "not-zdr"
   return "unknown"
 }
@@ -558,8 +677,47 @@ function looksLikeModelSubject(subject: string): boolean {
   if (subject.length === 0 || subject.length > 80) return false
   if (/https?:|\/|\?|@/.test(subject)) return false
   if (/^\d{1,2}:\d{2}/.test(subject)) return false
-  if (/^(for|learn|see|note|read|visit|by|with|during)\b/i.test(subject)) return false
+  if (/^(for|learn|see|note|read|visit|by|with|during|peak)\b/i.test(subject)) return false
   return /^[A-Za-z0-9][A-Za-z0-9 .,'()&+_-]*$/.test(subject)
+}
+
+/** Bound the Console privacy block at `id="privacy"` and the next `<h2>`. */
+function privacySection(html: string): string {
+  const idMatch = /\bid\s*=\s*["']privacy["']/i.exec(html)
+  let afterStart: string
+  if (idMatch) {
+    afterStart = html.slice(idMatch.index)
+    // The id may sit on the heading itself or on a wrapping `<section>`.
+    // For a wrapper, skip its first heading before looking for the next one.
+    const firstH2 = afterStart.search(/<h2\b/i)
+    if (firstH2 >= 0 && !afterStart.slice(0, firstH2).includes("<")) {
+      const headingClose = afterStart.indexOf("</h2", firstH2)
+      if (headingClose >= 0) {
+        const headingEnd = afterStart.indexOf(">", headingClose)
+        if (headingEnd >= 0) afterStart = afterStart.slice(headingEnd + 1)
+      }
+    }
+  } else {
+    const heading = /<h2\b[^>]*>\s*(?:Data\s+)?Privacy(?:\s+and\s+[^<]*)?\s*<\/h2>/i.exec(html)
+    if (!heading) return ""
+    afterStart = html.slice(heading.index + heading[0].length)
+  }
+  let section = afterStart
+  const nextHeading = afterStart.search(/<h2\b/i)
+  if (nextHeading >= 0) section = afterStart.slice(0, nextHeading)
+  const boundary = section.search(/<\/(?:article|aside|footer|main)>/i)
+  if (boundary >= 0) section = section.slice(0, boundary)
+  return section
+}
+
+/** Extract `<li>` bodies, tolerating a missing `</li>` (legal HTML). */
+function listItems(section: string): string[] {
+  const items: string[] = []
+  const pattern = /<li\b[^>]*>([\s\S]*?)(?:<\/li\s*>|(?=<li\b)|(?=<\/ul\s*>)|$)/gi
+  for (const match of section.matchAll(pattern)) {
+    if (match[1] !== undefined) items.push(stripTags(match[1]))
+  }
+  return items
 }
 
 /**
@@ -570,24 +728,15 @@ function looksLikeModelSubject(subject: string): boolean {
  * become provider-scoped family policies; unclassified model bullets become
  * `unknown` (fail closed) instead of being silently dropped.
  */
-export function parseConsolePrivacy(html: string): ScopedPolicy[] {
+export function parseConsolePrivacy(html: string, options: ParseOptions = {}): ScopedPolicy[] {
   const tables = extractTables(html)
   const nameToId = parseNameToIdMap(tables)
   const policies: ScopedPolicy[] = []
-  const today = new Date().toISOString().slice(0, 10)
+  const now = options.now ?? Date.now()
+  const today = new Date(now).toISOString().slice(0, 10)
 
-  const privacyStart = html.search(/\bid\s*=\s*["']privacy["']/i)
-  if (privacyStart < 0) return policies
-  const afterStart = html.slice(privacyStart)
-  let section = afterStart
-  const nextHeading = afterStart.search(/<h2\b/i)
-  if (nextHeading >= 0) section = afterStart.slice(0, nextHeading)
-  const boundary = section.search(/<\/(?:article|aside|footer|main)>/i)
-  if (boundary >= 0) section = section.slice(0, boundary)
-
-  const bullets = [...section.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map((match) =>
-    stripTags(match[1]),
-  )
+  const section = privacySection(html)
+  const bullets = listItems(section)
 
   for (const bullet of bullets) {
     const sep = bullet.indexOf(":")
@@ -595,10 +744,11 @@ export function parseConsolePrivacy(html: string): ScopedPolicy[] {
     const subject = bullet.slice(0, sep).trim()
     const rest = bullet.slice(sep + 1).trim()
 
-    const apiFamily = subject.match(/^(OpenAI|Anthropic|Mistral)\s+APIs?$/i)
+    const apiFamily = subject.match(/^(OpenAI|Anthropic|Mistral)\s+(?:APIs?|endpoints?)\b/i)
     if (apiFamily) {
       const familyName = apiFamily[1].toLowerCase()
       const family = API_FAMILIES[familyName]
+      if (!family) continue
       const retention = consoleRetention(rest, family)
       policies.push({
         providerID: "opencode",
@@ -647,6 +797,87 @@ const PAGES: readonly PageDescriptor[] = [
 ]
 
 /**
+ * Fetch one page with a hard per-attempt deadline.
+ *
+ * `Promise.race` is deliberate: even a `fetchImpl` that ignores its abort
+ * signal cannot hang the caller past the deadline. The external signal is
+ * raced too, so cleanup aborts in-flight work immediately.
+ */
+async function fetchPage(
+  page: PageDescriptor,
+  fetchImpl: typeof fetch,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<ProviderFetchResult> {
+  const fetchedAt = new Date().toISOString()
+  const controller = new AbortController()
+  const attemptTimeout =
+    typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? Math.min(timeoutMs, 60_000)
+      : 10_000
+
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let onAbort: (() => void) | undefined
+
+  const failed = (error: unknown): ProviderFetchResult => ({
+    providerID: page.providerID,
+    policies: [],
+    source: page.url,
+    fetchedAt,
+    complete: false,
+    error: error instanceof Error ? error.message : String(error),
+  })
+
+  if (signal?.aborted) {
+    controller.abort()
+    return failed(new Error("aborted"))
+  }
+
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error(`timed out after ${attemptTimeout}ms`))
+    }, attemptTimeout)
+  })
+
+  const aborted = new Promise<never>((_, reject) => {
+    if (!signal) return
+    onAbort = () => {
+      controller.abort()
+      reject(new Error("aborted"))
+    }
+    signal.addEventListener("abort", onAbort, { once: true })
+  })
+
+  const work = (async () => {
+    const response = await fetchImpl(page.url, { signal: controller.signal })
+    if (!response.ok) throw new Error(`${page.url} returned ${response.status}`)
+    const html = await response.text()
+    return page.parse(html)
+  })()
+
+  try {
+    const parsed = await Promise.race([work, timeout, aborted])
+    // De-duplicate by (provider, modelID); conflicting duplicates keep the
+    // worst signal via toPolicyMap.
+    const policies = dedupePolicies(parsed)
+    return {
+      providerID: page.providerID,
+      policies,
+      source: page.url,
+      fetchedAt,
+      complete: policies.length > 0,
+      ...(policies.length === 0 ? { error: "page parsed zero policies" } : {}),
+    }
+  } catch (error) {
+    return failed(error)
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+    if (signal && onAbort) signal.removeEventListener("abort", onAbort)
+  }
+}
+
+/**
  * Fetch both documentation pages independently. A failure on one page is
  * reported in that provider's `error` field and does not discard the other
  * provider's data. An empty parse is `complete: false`.
@@ -657,45 +888,23 @@ export async function fetchRetentionPolicies(
   signal?: AbortSignal,
 ): Promise<FetchResult> {
   const settled = await Promise.allSettled(
-    PAGES.map(async (page): Promise<ProviderFetchResult> => {
-      const fetchedAt = new Date().toISOString()
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), timeoutMs)
-      const onAbort = () => controller.abort()
-      signal?.addEventListener("abort", onAbort, { once: true })
-      try {
-        const response = await fetchImpl(page.url, { signal: controller.signal })
-        if (!response.ok) throw new Error(`${page.url} returned ${response.status}`)
-        const html = await response.text()
-        const policies = page.parse(html)
-        return {
-          providerID: page.providerID,
-          policies,
-          source: page.url,
-          fetchedAt,
-          complete: policies.length > 0,
-          ...(policies.length === 0 ? { error: "page parsed zero policies" } : {}),
-        }
-      } catch (error) {
-        return {
-          providerID: page.providerID,
-          policies: [],
-          source: page.url,
-          fetchedAt,
-          complete: false,
-          error: error instanceof Error ? error.message : String(error),
-        }
-      } finally {
-        clearTimeout(timer)
-        signal?.removeEventListener("abort", onAbort)
-      }
-    }),
+    PAGES.map((page) => fetchPage(page, fetchImpl, timeoutMs, signal)),
   )
 
   const providers: Record<string, ProviderFetchResult> = {}
-  for (const item of settled) {
+  for (const [index, item] of settled.entries()) {
+    const page = PAGES[index]
     if (item.status === "fulfilled") {
       providers[item.value.providerID] = item.value
+    } else {
+      providers[page.providerID] = {
+        providerID: page.providerID,
+        policies: [],
+        source: page.url,
+        fetchedAt: new Date().toISOString(),
+        complete: false,
+        error: item.reason instanceof Error ? item.reason.message : String(item.reason),
+      }
     }
   }
   const sources = Object.values(providers)
@@ -705,6 +914,6 @@ export async function fetchRetentionPolicies(
     providers,
     sources,
     fetchedAt: new Date().toISOString(),
-    complete: Object.values(providers).every((provider) => provider.complete),
+    complete: PAGES.every((page) => providers[page.providerID]?.complete === true),
   }
 }
