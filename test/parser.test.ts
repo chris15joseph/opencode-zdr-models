@@ -474,7 +474,7 @@ test("parseConsolePrivacy makes API-family bullets meaningful without junk IDs",
 // Fetch resilience
 // ---------------------------------------------------------------------------
 
-function liveFetch(input: RequestInfo | URL): Promise<Response> {
+function liveFetch(input: string | URL | Request): Promise<Response> {
   const url = String(input)
   if (url.startsWith(GO_PAGE_URL)) return Promise.resolve(new Response(goHtml))
   if (url.startsWith(CONSOLE_PAGE_URL)) return Promise.resolve(new Response(modelsHtml))
@@ -504,7 +504,7 @@ test("fetchRetentionPolicies returns per-provider live data", async () => {
 })
 
 test("one page failure still returns the other page's policies", async () => {
-  const fakeFetch = async (input: RequestInfo | URL): Promise<Response> => {
+  const fakeFetch = async (input: string | URL | Request): Promise<Response> => {
     const url = String(input)
     if (url.startsWith(GO_PAGE_URL)) return new Response(goHtml)
     return new Response("service unavailable", { status: 503 })
@@ -542,7 +542,7 @@ test("empty and malformed 200 responses are incomplete, never cache-worthy", asy
 })
 
 test("partial parse keeps the successful page and marks the empty page incomplete", async () => {
-  const fakeFetch = async (input: RequestInfo | URL): Promise<Response> => {
+  const fakeFetch = async (input: string | URL | Request): Promise<Response> => {
     const url = String(input)
     if (url.startsWith(GO_PAGE_URL)) return new Response("<html></html>")
     return new Response(modelsHtml)
@@ -566,7 +566,7 @@ test("fetchRetentionPolicies de-duplicates by provider/model with worst-signal m
       "<tr><td>Kimi K3</td><td>Not used</td><td>14 days</td></tr>",
   )
   assert.notEqual(duplicated, goHtml)
-  const fakeFetch = async (input: RequestInfo | URL): Promise<Response> => {
+  const fakeFetch = async (input: string | URL | Request): Promise<Response> => {
     const url = String(input)
     if (url.startsWith(GO_PAGE_URL)) return new Response(duplicated)
     return new Response(modelsHtml)
@@ -606,7 +606,7 @@ test("per-attempt timeout and external abort are bounded even if fetch ignores s
 })
 
 test("a hanging page does not discard a successful page before the deadline", async () => {
-  const fakeFetch = (input: RequestInfo | URL): Promise<Response> => {
+  const fakeFetch = (input: string | URL | Request): Promise<Response> => {
     const url = String(input)
     if (url.startsWith(GO_PAGE_URL)) return Promise.resolve(new Response(goHtml))
     return new Promise<Response>(() => {})

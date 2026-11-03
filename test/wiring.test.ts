@@ -197,7 +197,7 @@ function snapshotCache(fetchedAt: string) {
 }
 
 function fixtureFetch(calls: string[] = []) {
-  return (async (input: RequestInfo | URL): Promise<Response> => {
+  return (async (input: string | URL | Request): Promise<Response> => {
     const url = String(input)
     calls.push(url)
     if (url.startsWith(GO_PAGE_URL)) return new Response(goHtml)
@@ -236,7 +236,7 @@ test("registers transform before storage/network, filters snapshot, and cleanup 
         },
       })
       let aborted = false
-      const slowFetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
+      const slowFetch = ((_input: string | URL | Request, init?: RequestInit) => {
         harness.events.push("fetch")
         const signal = init?.signal
         return new Promise<Response>((_resolve, reject) => {
@@ -472,7 +472,7 @@ test("one failed page still applies the other provider independently", async () 
         { providerID: "opencode-go", id: "kimi-k3" },
       ],
     })
-    const fakeFetch = (async (input: RequestInfo | URL): Promise<Response> => {
+    const fakeFetch = (async (input: string | URL | Request): Promise<Response> => {
       const url = String(input)
       if (url.startsWith(GO_PAGE_URL)) return new Response(goHtml)
       if (url.startsWith(CONSOLE_PAGE_URL)) return new Response("down", { status: 503 })
@@ -595,7 +595,7 @@ test("slow fetch cannot overlap the next timer tick", async () => {
         resolve: (response: Response) => void
         reject: (error: unknown) => void
       }> = []
-      const fakeFetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const fakeFetch = ((input: string | URL | Request, init?: RequestInit) => {
         const url = String(input)
         return new Promise<Response>((resolve, reject) => {
           const entry = { url, resolve, reject }

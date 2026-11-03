@@ -326,7 +326,7 @@ test("showUnknown only widens scoped unknown models", () => {
 })
 
 test("partial page failure applies the successful provider and keeps the other snapshot", async () => {
-  const fakeFetch = async (input: RequestInfo | URL): Promise<Response> => {
+  const fakeFetch = async (input: string | URL | Request): Promise<Response> => {
     const url = String(input)
     if (url.startsWith(GO_PAGE_URL)) return new Response(goHtml)
     if (url.startsWith(CONSOLE_PAGE_URL)) return new Response("down", { status: 503 })
