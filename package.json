@@ -1,26 +1,51 @@
 {
   "name": "opencode-zero-retention-models",
   "version": "1.0.0",
-  "description": "OpenCode plugin: only list models in /models whose data retention policy is 0 days. Policies are fetched live from the OpenCode docs before each session.",
+  "description": "OpenCode plugin: only list models in /models whose published data retention policy is 0 days. Policies refresh on plugin load and every refreshHours (default 12), with a bundled snapshot fallback.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
+  "types": "./src/index.ts",
   "files": [
     "src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
-    "@opencode/plugin": "latest"
+    "@opencode/plugin": "2.2.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
   },
   "scripts": {
-    "test": "node --test test/"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/",
+    "prepublishOnly": "npm run typecheck && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chris15joseph/opencode-zero-retention-models.git"
+  },
+  "author": "Christopher Joseph <chrisjoseph15496@gmail.com>",
+  "homepage": "https://github.com/chris15joseph/opencode-zero-retention-models#readme",
+  "bugs": {
+    "url": "https://github.com/chris15joseph/opencode-zero-retention-models/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "opencode",
     "opencode-plugin",
     "privacy",
-    "zero-retention"
+    "zero-retention",
+    "data-retention",
+    "models"
   ],
   "license": "MIT"
 }
