@@ -1,0 +1,132 @@
+name: ci
+
+on:
+  push:
+    branches: [master, "release/**"]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24", "26"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install from lockfile
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Pack dry run
+        run: npm pack --dry-run
+
+  pack-smoke:
+    name: pack + install smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install from lockfile
+        run: npm ci
+      - name: Pack tarball and assert contents
+        run: |
+          set -euo pipefail
+          npm pack --pack-destination "$RUNNER_TEMP"
+          TARBALL=$(find "$RUNNER_TEMP" -maxdepth 1 -name '*.tgz' -print -quit)
+          test -n "$TARBALL"
+          tar -tzf "$TARBALL" | sort
+          if tar -tzf "$TARBALL" | grep -Eq '^package/(test|scripts)/'; then
+            echo "error: tests/scripts must not be shipped" >&2
+            exit 1
+          fi
+          if tar -tzf "$TARBALL" | grep -Eq '(^|/)node_modules/|\.tgz$'; then
+            echo "error: artifacts must not be shipped" >&2
+            exit 1
+          fi
+      - name: Install tarball into a temp project
+        run: |
+          set -euo pipefail
+          TARBALL=$(find "$RUNNER_TEMP" -maxdepth 1 -name '*.tgz' -print -quit)
+          SMOKE_DIR="$RUNNER_TEMP/smoke"
+          mkdir -p "$SMOKE_DIR"
+          cd "$SMOKE_DIR"
+          npm init -y >/dev/null
+          npm install "$TARBALL" --no-audit --no-fund
+          node - <<'NODE'
+          const fs = require("node:fs")
+          const path = require("node:path")
+          const pkgDir = path.join(process.cwd(), "node_modules", "opencode-zero-retention-models")
+          const pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, "package.json"), "utf8"))
+          if (pkg.dependencies?.["@opencode/plugin"] !== "2.2.5") throw new Error("runtime dependency is not pinned")
+          if (pkg.engines?.node !== ">=20") throw new Error("engines.node is missing")
+          const entry = path.join(pkgDir, pkg.exports["."])
+          if (!fs.existsSync(entry)) throw new Error("package entry is missing: " + entry)
+          for (const required of ["LICENSE", "README.md"]) {
+            if (!fs.existsSync(path.join(pkgDir, required))) throw new Error("missing shipped file: " + required)
+          }
+          if (fs.existsSync(path.join(pkgDir, "test"))) throw new Error("test directory was shipped")
+          console.log("installed package check OK")
+          NODE
+      - name: Import packaged plugin payload
+        run: |
+          set -euo pipefail
+          SMOKE_DIR="$RUNNER_TEMP/smoke"
+          cd "$SMOKE_DIR"
+          rm -rf "$SMOKE_DIR/import-check-pkg"
+          cp -R node_modules/opencode-zero-retention-models "$SMOKE_DIR/import-check-pkg"
+          node --experimental-strip-types - <<'NODE'
+          const path = require("node:path")
+          const { pathToFileURL } = require("node:url")
+          const entry = path.resolve("import-check-pkg", "src", "index.ts")
+          import(pathToFileURL(entry).href).then((mod) => {
+            const plugin = mod.default
+            if (!plugin || typeof plugin.setup !== "function" || !plugin.id) {
+              throw new Error("packaged plugin did not export a Plugin.define object")
+            }
+            console.log("packaged import OK:", plugin.id)
+          }).catch((error) => {
+            console.error(error)
+            process.exit(1)
+          })
+          NODE
+      - name: Smoke with a temp OpenCode config when available
+        run: |
+          set -euo pipefail
+          if ! command -v opencode >/dev/null 2>&1; then
+            echo "opencode is not installed in this job; skipping host smoke"
+            exit 0
+          fi
+          SMOKE_DIR="$RUNNER_TEMP/smoke"
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/opencode-config"
+          export XDG_DATA_HOME="$RUNNER_TEMP/opencode-data"
+          export XDG_CACHE_HOME="$RUNNER_TEMP/opencode-cache"
+          export XDG_STATE_HOME="$RUNNER_TEMP/opencode-state"
+          mkdir -p "$XDG_CONFIG_HOME/opencode"
+          cat > "$XDG_CONFIG_HOME/opencode/opencode.json" <<JSON
+          {
+            "\$schema": "https://opencode.ai/config.json",
+            "plugins": ["$SMOKE_DIR/node_modules/opencode-zero-retention-models"]
+          }
+          JSON
+          cd "$SMOKE_DIR"
+          opencode api --standalone get /api/model > models.json
+          node -e 'const r=require("./models.json"); if (!Array.isArray(r.data) || r.data.length === 0) throw new Error("no models returned by OpenCode"); console.log("OpenCode host smoke OK:", r.data.length, "models")'
