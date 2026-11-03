@@ -86,10 +86,13 @@ export const SNAPSHOT_MAX_AGE_DAYS = 30
  * provider named `local` can point at a remote base URL. Only well-known local
  * runtimes are listed here, and the README documents the assumption. Aliases
  * with underscores/hyphens are included because provider IDs are user-defined.
+ * Deliberately excluded: `local` and `local-gateway` are arbitrary names and
+ * can be configured with a remote base URL.
  */
 export const LOCAL_PROVIDERS = new Set([
   "ollama",
   "ollama-local",
+  "ollama_local",
   "lmstudio",
   "lm-studio",
   "lm_studio",
@@ -98,6 +101,9 @@ export const LOCAL_PROVIDERS = new Set([
   "llama_cpp",
   "vllm",
   "mlx",
+  "localai",
+  "jan",
+  "koboldcpp",
 ])
 
 /**
@@ -243,7 +249,10 @@ function staleSnapshotZero(policy: ScopedPolicy, now: number): boolean {
   return policy.source === "snapshot" && policy.retention === "zero" && !snapshotIsFresh(now)
 }
 
-function findPolicy(providerMap: Map<string, ScopedPolicy> | undefined, modelID: string) {
+function findPolicy(
+  providerMap: ReadonlyMap<string, ScopedPolicy> | undefined,
+  modelID: string,
+) {
   if (!providerMap) return undefined
   const id = normalizeID(modelID)
   const exact = providerMap.get(id)
@@ -303,7 +312,8 @@ export function resolveRetention(
   }
 
   const now = options.now ?? Date.now()
-  const policy = findPolicy(policies?.get(provider), modelID)
+  const policySource = policies ?? SNAPSHOT_BY_PROVIDER
+  const policy = findPolicy(policySource.get(provider), modelID)
   if (policy) {
     if (expired(policy, now)) {
       return {
@@ -341,7 +351,8 @@ export function resolveRetention(
 
 /** Whether a model with this policy may appear in the model list. */
 export function isAllowed(policy: ResolvedRetention, showUnknown: boolean): boolean {
-  if (!policy.scoped) return true
+  // Only an explicit out-of-scope/local marker bypasses filtering.
+  if (policy.scoped === false) return true
   if (policy.retention === "zero") return true
   if (policy.retention === "unknown") return showUnknown === true
   return false

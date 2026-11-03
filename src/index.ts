@@ -42,11 +42,11 @@ import {
   type ScopedPolicy,
 } from "./retention.ts"
 
-const CACHE_KEY = "policies/v2"
-const CACHE_VERSION = 2
-const CACHE_MAX_AGE_MS = 30 * 86_400_000
-const MIN_REFRESH_HOURS = 1
-const MAX_REFRESH_HOURS = 596
+export const CACHE_KEY = "policies/v2"
+export const CACHE_VERSION = 2
+export const CACHE_MAX_AGE_MS = 30 * 86_400_000
+export const MIN_REFRESH_HOURS = 1
+export const MAX_REFRESH_HOURS = 596
 
 interface Options {
   showUnknown?: boolean
@@ -123,15 +123,17 @@ export function validateOptions(raw: unknown): ValidatedOptions {
   if (options.verifiedZdr !== undefined) {
     const value = options.verifiedZdr
     if (Array.isArray(value)) {
-      verifiedZdr = value.filter(
-        (item): item is { providerID: string; modelID: string } =>
-          Boolean(item) &&
-          typeof item === "object" &&
-          typeof (item as Record<string, unknown>).providerID === "string" &&
-          typeof (item as Record<string, unknown>).modelID === "string",
-      )
+      for (const item of value) {
+        if (!item || typeof item !== "object") continue
+        const entry = item as Record<string, unknown>
+        if (typeof entry.providerID !== "string" || typeof entry.modelID !== "string") continue
+        const providerID = entry.providerID.trim()
+        const modelID = entry.modelID.trim()
+        if (!providerID || !modelID) continue
+        verifiedZdr.push({ providerID, modelID })
+      }
       if (verifiedZdr.length !== value.length) {
-        warnings.push("verifiedZdr entries must be {providerID, modelID} strings; invalid entries ignored")
+        warnings.push("verifiedZdr entries must be non-empty {providerID, modelID} strings; invalid entries ignored")
       }
     } else {
       warnings.push("verifiedZdr must be an array; ignoring")
@@ -160,36 +162,51 @@ function isScopedPolicy(value: unknown): value is ScopedPolicy {
   )
 }
 
-function isCachedProvider(value: unknown): value is CachedProvider {
+function normalizedID(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function isCachedProvider(value: unknown, key: string, now: number): value is CachedProvider {
   if (!isRecord(value)) return false
-  return (
-    typeof value.providerID === "string" &&
-    typeof value.source === "string" &&
-    typeof value.fetchedAt === "string" &&
-    Number.isFinite(Date.parse(value.fetchedAt)) &&
-    typeof value.complete === "boolean" &&
-    Array.isArray(value.policies) &&
-    value.policies.every(isScopedPolicy)
+  if (
+    typeof value.providerID !== "string" ||
+    normalizedID(value.providerID) !== normalizedID(key) ||
+    typeof value.source !== "string" ||
+    value.source.trim().length === 0 ||
+    typeof value.fetchedAt !== "string" ||
+    value.complete !== true ||
+    !Array.isArray(value.policies) ||
+    value.policies.length === 0
+  ) {
+    return false
+  }
+  const fetched = Date.parse(value.fetchedAt)
+  if (!Number.isFinite(fetched) || fetched > now || now - fetched > CACHE_MAX_AGE_MS) return false
+  const providerID = normalizedID(value.providerID)
+  return value.policies.every(
+    (policy) => isScopedPolicy(policy) && normalizedID(policy.providerID) === providerID,
   )
 }
 
 /**
  * Validate a cached payload. Corrupt/future/too-old caches are ignored (the
- * snapshot remains active), never thrown.
+ * snapshot remains active), never thrown. Individual stale/corrupt provider
+ * entries are skipped so a successful provider is still usable.
  */
 export function parseCachedPayload(raw: unknown, now = Date.now()): CachedPayload | undefined {
   if (!isRecord(raw)) return undefined
   if (raw.version !== CACHE_VERSION) return undefined
   if (typeof raw.fetchedAt !== "string") return undefined
   const fetched = Date.parse(raw.fetchedAt)
-  if (!Number.isFinite(fetched) || fetched > now + 5 * 60_000) return undefined
+  if (!Number.isFinite(fetched) || fetched > now) return undefined
   if (now - fetched > CACHE_MAX_AGE_MS) return undefined
   if (!isRecord(raw.providers)) return undefined
   const providers: Record<string, CachedProvider> = {}
   for (const [key, value] of Object.entries(raw.providers)) {
-    if (!isCachedProvider(value)) return undefined
-    providers[key] = value
+    if (!isCachedProvider(value, key, now)) continue
+    providers[normalizedID(key)] = value
   }
+  if (Object.keys(providers).length === 0) return undefined
   return { version: CACHE_VERSION, providers, fetchedAt: raw.fetchedAt }
 }
 
@@ -203,12 +220,13 @@ function providerCacheFrom(result: ProviderFetchResult): CachedProvider {
   }
 }
 
-function mergeProviderData(
+export function mergeProviderData(
   previous: Record<string, CachedProvider>,
   next: Record<string, ProviderFetchResult>,
 ): Record<string, CachedProvider> {
   const merged = { ...previous }
   for (const [providerID, result] of Object.entries(next)) {
+    // Incomplete/empty parses never replace last-known-good provider data.
     if (result.complete && result.policies.length > 0) {
       merged[providerID] = providerCacheFrom(result)
     }
@@ -263,10 +281,8 @@ function policyFingerprint(map: PolicyMap): string {
   return parts.join("|")
 }
 
-function toStorageJson(value: unknown): Parameters<Parameters<typeof Plugin.define>[0]["setup"]>[0] extends never
-  ? never
-  : Record<string, unknown> {
-  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>
+function toStorageJson(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value))
 }
 
 export default Plugin.define({

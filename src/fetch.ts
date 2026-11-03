@@ -486,7 +486,10 @@ export function parseGoPrivacy(html: string): ScopedPolicy[] {
 
         const training = classifyTrainingCell(trainingRaw)
         const retention = classifyRetentionCell(retentionRaw)
-        let final = worstRetention(training, retention) ?? "unknown"
+        // Training is a known fact and dominates any retention cell, including
+        // an unclassified one. Unknown retention alone still fails closed.
+        let final: Retention =
+          training === "training" ? "training" : (worstRetention(training, retention) ?? "unknown")
         const conditional = conditionalFromFootnote(html, name, retentionRaw)
         if (final === "zero" && retentionRaw.includes("*") && !conditional.validUntil) {
           // A conditional zero without a parsed validity window is not safe to
