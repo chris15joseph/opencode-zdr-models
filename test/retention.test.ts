@@ -6,9 +6,8 @@
  * precedence, live-over-snapshot authority, negation, snapshot age/validity,
  * Console/Go separation, local-provider aliases, and cache/merge safety.
  *
- * Fixtures are read-only inputs captured from the published docs. Parser
- * hardening fixtures are owned by WS2; small inline documents here exercise
- * policy semantics only.
+ * Fixtures are read-only inputs captured from the published docs; small inline
+ * documents here exercise policy semantics only.
  */
 import { test } from "node:test"
 import assert from "node:assert/strict"
@@ -42,11 +41,10 @@ import {
   CACHE_MAX_AGE_MS,
   CACHE_VERSION,
   buildActivePolicyMap,
-  clampRefreshHours,
   mergeProviderData,
   parseCachedPayload,
-  validateOptions,
-} from "../src/index.ts"
+} from "../src/cache.ts"
+import { clampRefreshHours, validateOptions } from "../src/options.ts"
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures")
 const goHtml = readFileSync(join(fixtures, "console-go.html"), "utf8")
