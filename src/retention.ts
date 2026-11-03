@@ -175,7 +175,7 @@ export function worstRetention(...values: (Retention | undefined)[]): Retention 
   return worst
 }
 
-export function normalizeID(id: string): string {
+function normalizeID(id: string): string {
   return id.trim().toLowerCase()
 }
 
@@ -214,18 +214,6 @@ export function toPolicyMap(policies: readonly ScopedPolicy[]): PolicyMap {
     }
   }
   return map
-}
-
-/** Merge two policy maps; `overlay` wins for the same provider/model key. */
-export function mergePolicyMaps(base: PolicyMap, overlay: PolicyMap): PolicyMap {
-  const out: PolicyMap = new Map()
-  for (const [provider, policies] of base) out.set(provider, new Map(policies))
-  for (const [provider, policies] of overlay) {
-    const target = out.get(provider) ?? new Map<string, ScopedPolicy>()
-    for (const [key, policy] of policies) target.set(key, policy)
-    out.set(provider, target)
-  }
-  return out
 }
 
 /** Build the bundled snapshot map (Console + Go kept separate). */
@@ -322,7 +310,7 @@ export function resolveRetention(
   }
 
   const now = options.now ?? Date.now()
-  const policySource = policies ?? SNAPSHOT_BY_PROVIDER
+  const policySource = policies ?? SNAPSHOT_MAP
   const policy = findPolicy(policySource.get(provider), modelID)
   if (policy) {
     if (expired(policy, now)) {
@@ -501,9 +489,5 @@ export const GO_POLICIES: readonly ScopedPolicy[] = [
   goPolicy("beam-free", "Beam Free", "30d", `Go privacy table: 30 days (${GO_CAPTURED})`),
 ]
 
-/** Backwards-compatible combined snapshot list. */
-export const SNAPSHOT_POLICIES: readonly ScopedPolicy[] = [...CONSOLE_POLICIES, ...GO_POLICIES]
-
-/** Backwards-compatible map keyed by provider/model. */
-export const SNAPSHOT_BY_PROVIDER: ReadonlyMap<string, ReadonlyMap<string, ScopedPolicy>> =
-  snapshotPolicyMap()
+/** Snapshot lookup used when callers do not pass an explicit policy map. */
+const SNAPSHOT_MAP = snapshotPolicyMap()
