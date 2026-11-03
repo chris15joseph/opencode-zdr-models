@@ -14,7 +14,8 @@ import { readFileSync } from "node:fs"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import plugin, { CACHE_KEY, CACHE_VERSION } from "../src/index.ts"
+import { CACHE_KEY, CACHE_VERSION } from "../src/cache.ts"
+import plugin from "../src/index.ts"
 import { CONSOLE_PAGE_URL, GO_PAGE_URL } from "../src/fetch.ts"
 import { snapshotPolicyMap } from "../src/retention.ts"
 

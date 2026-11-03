@@ -221,7 +221,6 @@ export function snapshotPolicyMap(): PolicyMap {
   return toPolicyMap([...CONSOLE_POLICIES, ...GO_POLICIES])
 }
 
-/** Whether the bundled snapshot is still within its freshness window. */
 export function snapshotIsFresh(now = Date.now()): boolean {
   const captured = policyExpiry(SNAPSHOT_CAPTURED_AT)
   return Number.isFinite(captured) && now - captured <= SNAPSHOT_MAX_AGE_DAYS * 86_400_000
@@ -347,7 +346,6 @@ export function resolveRetention(
   }
 }
 
-/** Whether a model with this policy may appear in the model list. */
 export function isAllowed(policy: ResolvedRetention, showUnknown: boolean): boolean {
   // Only an explicit out-of-scope/local marker bypasses filtering.
   if (policy.scoped === false) return true
@@ -355,10 +353,6 @@ export function isAllowed(policy: ResolvedRetention, showUnknown: boolean): bool
   if (policy.retention === "unknown") return showUnknown === true
   return false
 }
-
-// ---------------------------------------------------------------------------
-// Bundled snapshot
-// ---------------------------------------------------------------------------
 
 function consolePolicy(
   modelID: string,
@@ -489,5 +483,4 @@ export const GO_POLICIES: readonly ScopedPolicy[] = [
   goPolicy("beam-free", "Beam Free", "30d", `Go privacy table: 30 days (${GO_CAPTURED})`),
 ]
 
-/** Snapshot lookup used when callers do not pass an explicit policy map. */
 const SNAPSHOT_MAP = snapshotPolicyMap()
