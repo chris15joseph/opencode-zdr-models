@@ -21,6 +21,7 @@
 import {
   type Retention,
   type ScopedPolicy,
+  policyExpiry,
   toPolicyMap,
   worstRetention,
 } from "./retention.ts"
@@ -567,7 +568,9 @@ function conditionalFromFootnote(
   const parsed = Date.parse(dateMatch[1])
   return {
     conditions,
-    validUntil: Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined,
+    // Keep the published date-only form so the resolver can treat it as
+    // "valid through the end of that day".
+    validUntil: Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : undefined,
   }
 }
 
@@ -619,7 +622,7 @@ export function parseGoPrivacy(html: string, options: ParseOptions = {}): Scoped
         const conditional = conditionalFromFootnote(html, name, retentionRaw)
         if (final === "zero" && retentionRaw.includes("*")) {
           const validUntil = conditional.validUntil
-          const expiry = validUntil ? Date.parse(validUntil) : Number.NaN
+          const expiry = validUntil ? policyExpiry(validUntil) : Number.NaN
           if (!Number.isFinite(expiry) || expiry < now) {
             // A conditional zero without a current validity window is not safe
             // to treat as unconditional.

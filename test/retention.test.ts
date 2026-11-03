@@ -32,6 +32,7 @@ import {
   SNAPSHOT_CAPTURED_AT,
   SNAPSHOT_MAX_AGE_DAYS,
   isAllowed,
+  policyExpiry,
   resolveRetention,
   snapshotIsFresh,
   snapshotPolicyMap,
@@ -200,7 +201,7 @@ test("policies are provider-scoped: openrouter untouched, opencode-go zero", () 
   assert.equal(openrouter.retention, "unknown")
   assert.equal(isAllowed(openrouter, false), true)
 
-  const go = resolveRetention("opencode-go", "kimi-k3")
+  const go = resolveRetention("opencode-go", "kimi-k3", undefined, { now: FRESH })
   assert.equal(go.scoped, true)
   assert.equal(go.retention, "zero")
   assert.equal(isAllowed(go, false), true)
@@ -288,6 +289,32 @@ test("snapshot age and validUntil conditions fail closed for stale zero policies
     },
   ])
   assert.equal(resolveRetention("opencode", "valid-model", valid, { now: FRESH }).retention, "zero")
+
+  // Date-only "valid through" policies last through 23:59:59.999 UTC that day.
+  const throughNov30 = toPolicyMap([
+    {
+      providerID: "opencode-go",
+      modelID: "deepseek-v4.1-flash",
+      name: "DeepSeek V4.1 Flash",
+      retention: "zero",
+      reason: "test conditional zero",
+      source: "live",
+      validUntil: "2026-11-30",
+    },
+  ])
+  assert.equal(Date.parse("2026-11-30T23:59:59.999Z"), policyExpiry("2026-11-30"))
+  assert.equal(
+    resolveRetention("opencode-go", "deepseek-v4.1-flash", throughNov30, {
+      now: Date.parse("2026-11-30T23:59:59.999Z"),
+    }).retention,
+    "zero",
+  )
+  assert.equal(
+    resolveRetention("opencode-go", "deepseek-v4.1-flash", throughNov30, {
+      now: Date.parse("2026-12-01T00:00:00.000Z"),
+    }).retention,
+    "unknown",
+  )
 
   // Staleness only invalidates a permissive zero; a stale 30d/not-zdr stays hidden.
   assert.equal(resolveRetention("opencode", "gpt-5", snapshot, { now: STALE }).retention, "30d")

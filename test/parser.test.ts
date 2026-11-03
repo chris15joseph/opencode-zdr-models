@@ -322,7 +322,7 @@ test("parseGoPrivacy: expired and unknown conditional zero fail closed", () => {
     (policy) => policy.modelID === "deepseek-v4.1-flash",
   )
   assert.equal(current?.retention, "zero")
-  assert.ok(current?.validUntil)
+  assert.equal(current?.validUntil, "2026-11-30")
 })
 
 // ---------------------------------------------------------------------------

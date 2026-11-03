@@ -32,9 +32,7 @@ there is no publish workflow and no npm token configured.
 - [ ] Working tree clean (`git status --short` empty) and the release commit is
       on `master`.
 - [ ] `npm ci` succeeds from the committed `package-lock.json`.
-- [ ] `npm run typecheck` exits 0. (This release branch was cut before the
-      WS1–WS4 code fixes; typecheck is expected to fail until those merges land.
-      Do not release while it fails.)
+- [ ] `npm run typecheck` exits 0. Do not release while it fails.
 - [ ] `npm test` passes on Node 20, 22, 24, and 26.
 - [ ] CI matrix is green, including the `pack + install smoke` job.
 - [ ] `npm pack --dry-run` contains only `package.json`, `README.md`,

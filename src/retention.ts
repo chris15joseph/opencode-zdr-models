@@ -235,13 +235,23 @@ export function snapshotPolicyMap(): PolicyMap {
 
 /** Whether the bundled snapshot is still within its freshness window. */
 export function snapshotIsFresh(now = Date.now()): boolean {
-  const captured = Date.parse(SNAPSHOT_CAPTURED_AT)
+  const captured = policyExpiry(SNAPSHOT_CAPTURED_AT)
   return Number.isFinite(captured) && now - captured <= SNAPSHOT_MAX_AGE_DAYS * 86_400_000
+}
+
+/**
+ * Parse a policy validity value. Date-only values mean "valid through the end
+ * of that day" (UTC), not "expires at 00:00 UTC"; the docs phrase these as
+ * "valid through November 30".
+ */
+export function policyExpiry(value: string): number {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return Date.parse(`${value}T23:59:59.999Z`)
+  return Date.parse(value)
 }
 
 function expired(policy: ScopedPolicy, now: number): boolean {
   if (!policy.validUntil) return false
-  const until = Date.parse(policy.validUntil)
+  const until = policyExpiry(policy.validUntil)
   return !Number.isFinite(until) || until < now
 }
 

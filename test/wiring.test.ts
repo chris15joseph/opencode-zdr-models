@@ -8,7 +8,7 @@
  * do not erase good data, timers are clamped and cleaned up, and a slow fetch
  * cannot overlap the next tick.
  */
-import { test } from "node:test"
+import { after, before, mock, test } from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { join, dirname } from "node:path"
@@ -21,6 +21,12 @@ import { snapshotPolicyMap } from "../src/retention.ts"
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures")
 const goHtml = readFileSync(join(fixtures, "console-go.html"), "utf8")
 const modelsHtml = readFileSync(join(fixtures, "console-models.html"), "utf8")
+
+// Freeze the wall clock inside the bundled snapshot's trust window. Runtime
+// behaviour after 30 days is still covered explicitly in retention.test.ts.
+const SNAPSHOT_WINDOW_NOW = Date.parse("2026-11-02T12:00:00Z")
+before(() => mock.timers.enable({ apis: ["Date"], now: SNAPSHOT_WINDOW_NOW }))
+after(() => mock.timers.reset())
 
 interface ModelRow {
   providerID: string
