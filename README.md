@@ -1,6 +1,5 @@
 # opencode-zero-retention-models
 
-[![npm](https://img.shields.io/npm/v/opencode-zero-retention-models)](https://www.npmjs.com/package/opencode-zero-retention-models)
 [![CI](https://github.com/chris15joseph/opencode-zero-retention-models/actions/workflows/ci.yml/badge.svg)](https://github.com/chris15joseph/opencode-zero-retention-models/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/opencode-zero-retention-models)](LICENSE)
 
@@ -25,6 +24,13 @@ was already selected. The plugin does not edit your config or session.
 
 ## Install
 
+> **npm status:** the package is pending its first publication. Until it
+> appears on npm, install from Git:
+>
+> ```sh
+> opencode plugin add github:chris15joseph/opencode-zero-retention-models
+> ```
+
 ```sh
 opencode plugin add opencode-zero-retention-models
 ```
@@ -36,12 +42,6 @@ Or add it to `opencode.json(c)` yourself:
   "$schema": "https://opencode.ai/config.json",
   "plugins": ["opencode-zero-retention-models"]
 }
-```
-
-Install from Git instead of npm:
-
-```sh
-opencode plugin add github:chris15joseph/opencode-zero-retention-models
 ```
 
 Local checkout:
