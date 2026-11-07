@@ -1,9 +1,10 @@
 # Release checklist — `opencode-zero-retention-models`
 
-**Status: 1.0.0 published to npm on 2026-11-07.** Future publishing requires
-explicit approval from the repository owner (Christopher Joseph). CI in this
-repository never publishes; there is no publish workflow and no npm token
-configured.
+**Status: 1.0.0 is prepared but not yet published.** The npm publish is pending
+a 2FA one-time password; npm rejected the first attempt with `E403: Two-factor
+authentication ... required to publish packages`. Publishing requires explicit
+approval from the repository owner (Christopher Joseph). CI in this repository
+never publishes; there is no publish workflow and no npm token configured.
 
 ## Supported runtime
 
@@ -19,7 +20,7 @@ configured.
 ## Versioning and tags
 
 - Follow SemVer: `MAJOR.MINOR.PATCH`.
-- `1.0.0` is the first release (2026-11-07).
+- `1.0.0` is the first release. Its npm publication is pending 2FA.
 - Tag releases as annotated tags: `vX.Y.Z` (for example `v1.0.0`).
 - The tag must match `package.json` `version` exactly. Never move or re-point a
   published tag.
