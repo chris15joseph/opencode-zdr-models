@@ -60,6 +60,17 @@ never publishes; there is no publish workflow and no npm token configured.
 6. Push the tag and create the GitHub release from `CHANGELOG.md`.
 7. Never publish from CI or from an unapproved local shell.
 
+## Post-publish distribution
+
+- **opencode.im** — auto-discovers npm packages with the `opencode-plugin`
+  keyword. Submit or correct the entry at <https://opencode.im/submit>. The
+  submit API was returning HTTP 502 on 2026-11-07; retry after npm publication.
+- **opencode.cafe** — submit at <https://www.opencode.cafe/submit>. The form
+  requires a Clerk sign-in.
+- **awesome-opencode** — add `data/plugins/opencode-zero-retention-models.yaml`
+  via a pull request. Its entry rules require at least 25 stars and a repository
+  at least 30 days old, so the earliest eligible date is 2026-11-30.
+
 ## Dependency audit (2026-11-02)
 
 Command: `npm audit --omit=dev` (also `npm audit` for the full tree).
