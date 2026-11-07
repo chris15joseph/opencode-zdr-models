@@ -1,6 +1,6 @@
 # Release checklist — `opencode-zero-retention-models`
 
-**Status: not published.** Publishing requires explicit approval from the
+**Status: 1.0.0 release.** Publishing requires explicit approval from the
 repository owner (Christopher Joseph). CI in this repository never publishes;
 there is no publish workflow and no npm token configured.
 
@@ -18,7 +18,7 @@ there is no publish workflow and no npm token configured.
 ## Versioning and tags
 
 - Follow SemVer: `MAJOR.MINOR.PATCH`.
-- `1.0.0` is the first release and is still **Unreleased**.
+- `1.0.0` is the first release (2026-11-07).
 - Tag releases as annotated tags: `vX.Y.Z` (for example `v1.0.0`).
 - The tag must match `package.json` `version` exactly. Never move or re-point a
   published tag.
@@ -30,7 +30,7 @@ there is no publish workflow and no npm token configured.
 ### Pre-release gates
 
 - [ ] Working tree clean (`git status --short` empty) and the release commit is
-      on `master`.
+      on `main`.
 - [ ] `npm ci` succeeds from the committed `package-lock.json`.
 - [ ] `npm run typecheck` exits 0. Do not release while it fails.
 - [ ] `npm test` passes on Node 20, 22, 24, and 26.
@@ -39,15 +39,14 @@ there is no publish workflow and no npm token configured.
       `LICENSE`, and `src/`. Tests, fixtures, lockfiles, and archives must not
       be shipped.
 - [ ] `npm audit --omit=dev` has been re-run and the result is recorded below.
-- [ ] `CHANGELOG.md` has an entry for the version and the date is set when
-      released (it stays `Unreleased` until then).
-- [ ] README claims match code and live behavior (owned by WS6).
+- [ ] `CHANGELOG.md` has an entry for the version with the release date.
+- [ ] README claims match code and live behavior.
 - [ ] No secrets, `node_modules/`, `*.tgz`, or coverage output are tracked.
 - [ ] Explicit publish approval has been recorded by the repository owner.
 
 ### Tag and publish (manual, after approval)
 
-1. Update `CHANGELOG.md`: replace `Unreleased` with the release date.
+1. Confirm `CHANGELOG.md` has the release date for this version.
 2. Commit the release notes.
 3. Create the annotated tag:
    `git tag -a vX.Y.Z -m "vX.Y.Z"`

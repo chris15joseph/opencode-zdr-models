@@ -5,10 +5,9 @@ All notable changes to `opencode-zero-retention-models` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-11-07
 
-Initial public release. This entry stays **Unreleased** until the checklist in
-`RELEASE.md` is complete. Publishing requires explicit approval.
+Initial public release.
 
 ### Added
 
