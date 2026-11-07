@@ -6,8 +6,8 @@
  *
  * Policies are fetched LIVE from the OpenCode documentation and cached:
  *
- *   https://opencode.ai/v2/docs/console/go#privacy
- *   https://opencode.ai/v2/docs/console/models#privacy
+ *   https://opencode.ai/docs/console/go#privacy
+ *   https://opencode.ai/docs/console/models#privacy
  *
  * Startup is fail-safe and non-blocking:
  *   1. The model transform is registered immediately with the bundled snapshot.

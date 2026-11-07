@@ -45,6 +45,8 @@ Initial public release.
   config, LICENSE, CI, audit documentation, and fixture provenance.
 - README refresh/caching, provider-scope, Mistral, and install claims are
   aligned with the actual behavior.
+- Policy pages use the canonical `/docs/...` URLs; the old `/v2/docs/...`
+  paths now redirect.
 
 ### Security
 

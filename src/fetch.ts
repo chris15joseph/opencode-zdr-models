@@ -3,9 +3,9 @@
  *
  * Fetches and parses the published privacy tables:
  *
- * - https://opencode.ai/v2/docs/console/go#privacy
+ * - https://opencode.ai/docs/console/go#privacy
  *   Go catalog: "Model | Model training | Data retention" table.
- * - https://opencode.ai/v2/docs/console/models#privacy
+ * - https://opencode.ai/docs/console/models#privacy
  *   Console catalog: privacy baseline plus per-model exception bullets.
  *
  * Both pages also publish a "Model | Model ID | ..." endpoints table which is
@@ -26,8 +26,8 @@ import {
   worstRetention,
 } from "./retention.ts"
 
-export const GO_PAGE_URL = "https://opencode.ai/v2/docs/console/go"
-export const CONSOLE_PAGE_URL = "https://opencode.ai/v2/docs/console/models"
+export const GO_PAGE_URL = "https://opencode.ai/docs/console/go"
+export const CONSOLE_PAGE_URL = "https://opencode.ai/docs/console/models"
 
 export interface ProviderFetchResult {
   providerID: string

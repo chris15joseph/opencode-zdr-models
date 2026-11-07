@@ -2,8 +2,8 @@
  * Data-retention policy model for OpenCode Console and OpenCode Go models.
  *
  * LIVE DATA: `fetch.ts` downloads and parses the privacy tables from
- * https://opencode.ai/v2/docs/console/go#privacy and
- * https://opencode.ai/v2/docs/console/models#privacy. This module contains the
+ * https://opencode.ai/docs/console/go#privacy and
+ * https://opencode.ai/docs/console/models#privacy. This module contains the
  * types, the pure resolution logic, and a bundled snapshot used only when live
  * data and the cache are unavailable.
  *

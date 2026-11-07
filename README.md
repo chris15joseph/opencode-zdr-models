@@ -107,8 +107,8 @@ Invalid option shapes produce one warning and fall back to the listed default.
 - The model list reloads only when the resolved policy set changes.
 
 Snapshots were captured **2026-10-31** from
-<https://opencode.ai/v2/docs/console/go#privacy> and
-<https://opencode.ai/v2/docs/console/models#privacy>.
+<https://opencode.ai/docs/console/go#privacy> and
+<https://opencode.ai/docs/console/models#privacy>.
 
 ## Provider scope
 
