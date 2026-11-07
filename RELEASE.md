@@ -61,14 +61,16 @@ token configured.
 
 ## Post-publish distribution
 
-- **opencode.im** — auto-discovers npm packages with the `opencode-plugin`
-  keyword. Submit or correct the entry at <https://opencode.im/submit>. The
-  submit API was returning HTTP 502 on 2026-11-07; retry after npm publication.
+- **opencode.im** — submitted 2026-11-07; the API returned `202 pending`
+  (editorial review). It also auto-discovers npm packages with the
+  `opencode-plugin` keyword.
 - **opencode.cafe** — submit at <https://www.opencode.cafe/submit>. The form
-  requires a Clerk sign-in.
-- **awesome-opencode** — add `data/plugins/opencode-zdr-models.yaml`
-  via a pull request. Its entry rules require at least 25 stars and a repository
-  at least 30 days old, so the earliest eligible date is 2026-11-30.
+  requires a Clerk sign-in, so this is a manual step for the repository owner.
+- **awesome-opencode** — add `data/plugins/opencode-zdr-models.yaml` via a pull
+  request. Its entry rules require at least 25 stars and a repository at least
+  30 days old; the earliest eligible date is 2026-11-30.
+- **OpenDock** — no submission needed. Its daily crawl lists public npm packages
+  with the `opencode-plugin` keyword.
 
 ## Dependency audit (2026-11-02)
 
