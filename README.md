@@ -1,5 +1,6 @@
 # opencode-zdr-models
 
+[![npm](https://img.shields.io/npm/v/opencode-zdr-models)](https://www.npmjs.com/package/opencode-zdr-models)
 [![CI](https://github.com/chris15joseph/opencode-zdr-models/actions/workflows/ci.yml/badge.svg)](https://github.com/chris15joseph/opencode-zdr-models/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/opencode-zdr-models)](LICENSE)
 
@@ -25,15 +26,14 @@ ZDR claims are always removed, even when `showUnknown` is enabled.
 
 ## Install
 
-> **npm status:** the package is pending its first publication. Until it
-> appears on npm, install from Git:
->
-> ```sh
-> opencode plugin add github:chris15joseph/opencode-zdr-models
-> ```
-
 ```sh
 opencode plugin add opencode-zdr-models
+```
+
+Install from Git instead of npm:
+
+```sh
+opencode plugin add github:chris15joseph/opencode-zdr-models
 ```
 
 Or add it to `opencode.json(c)` yourself:

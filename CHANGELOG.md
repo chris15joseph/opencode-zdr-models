@@ -5,10 +5,9 @@ All notable changes to `opencode-zdr-models` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-11-07
 
-Initial public release. The npm publication is pending a 2FA one-time password;
-set the release date when it is published.
+Initial public release. Published to npm as `opencode-zdr-models@1.0.0`.
 
 ### Added
 
