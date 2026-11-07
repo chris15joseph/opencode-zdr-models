@@ -74,7 +74,7 @@ jobs:
           node - <<'NODE'
           const fs = require("node:fs")
           const path = require("node:path")
-          const pkgDir = path.join(process.cwd(), "node_modules", "opencode-zero-retention-models")
+          const pkgDir = path.join(process.cwd(), "node_modules", "opencode-zdr-models")
           const pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, "package.json"), "utf8"))
           if (pkg.dependencies?.["@opencode/plugin"] !== "2.2.5") throw new Error("runtime dependency is not pinned")
           if (pkg.engines?.node !== ">=20") throw new Error("engines.node is missing")
@@ -92,7 +92,7 @@ jobs:
           SMOKE_DIR="$RUNNER_TEMP/smoke"
           cd "$SMOKE_DIR"
           rm -rf "$SMOKE_DIR/import-check-pkg"
-          cp -R node_modules/opencode-zero-retention-models "$SMOKE_DIR/import-check-pkg"
+          cp -R node_modules/opencode-zdr-models "$SMOKE_DIR/import-check-pkg"
           node --experimental-strip-types - <<'NODE'
           const path = require("node:path")
           const { pathToFileURL } = require("node:url")
@@ -124,7 +124,7 @@ jobs:
           cat > "$XDG_CONFIG_HOME/opencode/opencode.json" <<JSON
           {
             "\$schema": "https://opencode.ai/config.json",
-            "plugins": ["$SMOKE_DIR/node_modules/opencode-zero-retention-models"]
+            "plugins": ["$SMOKE_DIR/node_modules/opencode-zdr-models"]
           }
           JSON
           cd "$SMOKE_DIR"

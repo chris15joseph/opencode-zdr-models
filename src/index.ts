@@ -1,5 +1,5 @@
 /**
- * opencode-zero-retention-models
+ * opencode-zdr-models
  *
  * Filters the model list shown by `/models` (and available to sessions) so that
  * only models whose published data-retention policy is 0 days remain.
@@ -141,7 +141,7 @@ export function validateOptions(raw: unknown): ValidatedOptions {
   }
 
   if (warnings.length > 0) {
-    console.warn(`[zero-retention-models] ${warnings.join("; ")}`)
+    console.warn(`[zdr-models] ${warnings.join("; ")}`)
   }
   return { showUnknown, refreshHours, providers, verifiedZdr }
 }
@@ -286,7 +286,7 @@ function toStorageJson(value: unknown): unknown {
 }
 
 export default Plugin.define({
-  id: "zero-retention-models",
+  id: "zdr-models",
   async setup(ctx) {
     const options = validateOptions(ctx.options)
     const refreshMs = options.refreshHours * 3_600_000
@@ -324,7 +324,7 @@ export default Plugin.define({
         try {
           await ctx.model.reload()
         } catch (error) {
-          console.error("[zero-retention-models] model reload failed:", error)
+          console.error("[zdr-models] model reload failed:", error)
         }
       }
       return true
@@ -336,13 +336,13 @@ export default Plugin.define({
         const parsed = parseCachedPayload(raw)
         if (!parsed) {
           if (raw !== undefined) {
-            console.warn("[zero-retention-models] ignoring invalid/stale policy cache")
+            console.warn("[zdr-models] ignoring invalid/stale policy cache")
           }
           return undefined
         }
         return parsed
       } catch (error) {
-        console.error("[zero-retention-models] policy cache read failed:", error)
+        console.error("[zdr-models] policy cache read failed:", error)
         return undefined
       }
     }
@@ -353,7 +353,7 @@ export default Plugin.define({
         await ctx.storage.set(CACHE_KEY, toStorageJson(payload) as never)
       } catch (error) {
         // A cache write failure must not discard live data.
-        console.error("[zero-retention-models] policy cache write failed:", error)
+        console.error("[zdr-models] policy cache write failed:", error)
       }
     }
 
@@ -365,7 +365,7 @@ export default Plugin.define({
         try {
           cached = await readCache()
         } catch (error) {
-          console.error("[zero-retention-models] cache load failed:", error)
+          console.error("[zdr-models] cache load failed:", error)
         }
 
         if (cached && !force) {
@@ -374,7 +374,7 @@ export default Plugin.define({
           changed = (await reloadIfChanged(next)) || changed
           const ageHours = Math.max(0, (Date.now() - Date.parse(cached.fetchedAt)) / 3_600_000)
           console.log(
-            `[zero-retention-models] using cached policies (${ageHours.toFixed(1)} h old, sources: ${
+            `[zdr-models] using cached policies (${ageHours.toFixed(1)} h old, sources: ${
               Object.values(cached.providers)
                 .filter((provider) => provider.complete)
                 .map((provider) => provider.source)
@@ -411,12 +411,12 @@ export default Plugin.define({
             .filter((provider) => !provider.complete)
             .map((provider) => `${provider.providerID}: ${provider.error ?? "incomplete parse"}`)
           console.log(
-            `[zero-retention-models] refreshed policies from ${sources.join(", ") || "snapshot (no live source)"}${
+            `[zdr-models] refreshed policies from ${sources.join(", ") || "snapshot (no live source)"}${
               failures.length > 0 ? `; failed: ${failures.join("; ")}` : ""
             }`,
           )
         } catch (error) {
-          console.error("[zero-retention-models] live fetch failed; keeping last policy data:", error)
+          console.error("[zdr-models] live fetch failed; keeping last policy data:", error)
         } finally {
           if (abortController === controller) abortController = undefined
         }
@@ -429,14 +429,14 @@ export default Plugin.define({
 
     // Background hydration/refresh: setup has already registered the filter.
     void load(false).catch((error) => {
-      console.error("[zero-retention-models] background policy load failed:", error)
+      console.error("[zdr-models] background policy load failed:", error)
     })
 
     // Policies can change daily: refresh while the session is open. The timer
     // is clamped and an in-flight guard prevents overlapping fetches.
     const timer = setInterval(() => {
       void load(true).catch((error) => {
-        console.error("[zero-retention-models] refresh failed:", error)
+        console.error("[zdr-models] refresh failed:", error)
       })
     }, refreshMs)
     timer.unref?.()

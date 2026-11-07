@@ -1,7 +1,7 @@
 {
-  "name": "opencode-zero-retention-models",
+  "name": "opencode-zdr-models",
   "version": "1.0.0",
-  "description": "OpenCode plugin: only list models in /models whose published data retention policy is 0 days. Policies refresh on plugin load and every refreshHours (default 12), with a bundled snapshot fallback.",
+  "description": "OpenCode 2 plugin that keeps only providers' published zero-data-retention (ZDR) models in /models, with a fail-closed snapshot and live policy refresh.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -29,12 +29,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/chris15joseph/opencode-zero-retention-models.git"
+    "url": "git+https://github.com/chris15joseph/opencode-zdr-models.git"
   },
   "author": "Christopher Joseph <chrisjoseph15496@gmail.com>",
-  "homepage": "https://github.com/chris15joseph/opencode-zero-retention-models#readme",
+  "homepage": "https://github.com/chris15joseph/opencode-zdr-models#readme",
   "bugs": {
-    "url": "https://github.com/chris15joseph/opencode-zero-retention-models/issues"
+    "url": "https://github.com/chris15joseph/opencode-zdr-models/issues"
   },
   "publishConfig": {
     "access": "public"
@@ -45,7 +45,9 @@
     "privacy",
     "zero-retention",
     "data-retention",
-    "models"
+    "models",
+    "zdr",
+    "zero-data-retention"
   ],
   "license": "MIT"
 }

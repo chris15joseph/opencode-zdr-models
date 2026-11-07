@@ -1,4 +1,4 @@
-# Release checklist — `opencode-zero-retention-models`
+# Release checklist — `opencode-zdr-models`
 
 **Status: 1.0.0 is prepared but not yet published.** The npm publish is pending
 a 2FA one-time password; npm rejected the first attempt with `E403: Two-factor
@@ -67,7 +67,7 @@ never publishes; there is no publish workflow and no npm token configured.
   submit API was returning HTTP 502 on 2026-11-07; retry after npm publication.
 - **opencode.cafe** — submit at <https://www.opencode.cafe/submit>. The form
   requires a Clerk sign-in.
-- **awesome-opencode** — add `data/plugins/opencode-zero-retention-models.yaml`
+- **awesome-opencode** — add `data/plugins/opencode-zdr-models.yaml`
   via a pull request. Its entry rules require at least 25 stars and a repository
   at least 30 days old, so the earliest eligible date is 2026-11-30.
 
@@ -100,7 +100,7 @@ when a newer `@opencode/plugin` release updates the transitive stack.
 ## Cross-repo duplication decision (2026-11-02)
 
 The small cache/TTL/fetch/interval helpers stay **duplicated** between
-`opencode-zero-retention-models` and `opencode-model-pricing` for 1.0.0.
+`opencode-zdr-models` and `opencode-model-pricing` for 1.0.0.
 
 Rationale:
 

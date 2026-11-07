@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `opencode-zero-retention-models` are documented here.
+All notable changes to `opencode-zdr-models` are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -34,6 +34,8 @@ set the release date when it is published.
   hide the model even when the retention cell says `0 days`.
 - Live policy data is authoritative per model ID: an unclassified live row
   becomes `unknown` instead of falling back to a stale snapshot `zero`.
+- Expired conditional zeros and stale snapshot zeros are marked expired and
+  removed from selection, even when `showUnknown: true`.
 - Negated retention text (`not zero`, `non-zero`, `does not offer zero`) no
   longer resolves to `zero`.
 - The model transform is registered before network/storage work; storage and

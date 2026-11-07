@@ -592,6 +592,38 @@ test("invalid showUnknown/providers/verifiedZdr warn and use safe fallbacks", as
   }
 })
 
+test("expired snapshot zeros stay disabled even with showUnknown", async () => {
+  await silently(async () => {
+    mock.timers.setTime(Date.parse("2026-12-01T00:00:00.000Z"))
+    try {
+      const fakeFetch = (async () =>
+        new Response("<html><body>no tables</body></html>")) as typeof fetch
+      await withFetch(fakeFetch, async () => {
+        const harness = makeHarness({
+          options: { showUnknown: true },
+          models: [
+            { providerID: "opencode", id: "kimi-k3" },
+            { providerID: "opencode", id: "gpt-5" },
+            { providerID: "opencode", id: "never-published" },
+          ],
+        })
+        const cleanup = await plugin.setup(harness.ctx as never)
+        const removed = harness.apply()
+        assert.ok(removed.includes("opencode/kimi-k3"), "stale snapshot zero must be removed")
+        assert.ok(removed.includes("opencode/gpt-5"), "30d remains removed")
+        assert.equal(
+          removed.includes("opencode/never-published"),
+          false,
+          "showUnknown still widens genuinely unknown models",
+        )
+        await cleanup?.()
+      })
+    } finally {
+      mock.timers.setTime(SNAPSHOT_WINDOW_NOW)
+    }
+  })
+})
+
 test("slow fetch cannot overlap the next timer tick", async () => {
   await silently(async () => {
     const timers = captureIntervals()

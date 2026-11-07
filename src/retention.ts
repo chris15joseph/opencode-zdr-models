@@ -57,6 +57,12 @@ export interface ResolvedRetention {
    */
   scoped: boolean
   policy?: ScopedPolicy
+  /**
+   * True when the policy was a zero-retention claim that has expired or is
+   * based on a stale bundled snapshot. Expired claims are never selectable,
+   * even with `showUnknown`.
+   */
+  expired?: boolean
 }
 
 export interface ResolveOptions {
@@ -318,6 +324,7 @@ export function resolveRetention(
         retention: "unknown",
         scoped: true,
         policy,
+        expired: true,
         reason: `published policy expired${policy.validUntil ? ` on ${policy.validUntil}` : ""}: ${policy.reason}`,
       }
     }
@@ -326,6 +333,7 @@ export function resolveRetention(
         retention: "unknown",
         scoped: true,
         policy,
+        expired: true,
         reason: `bundled snapshot is older than ${SNAPSHOT_MAX_AGE_DAYS} days; refusing to reuse a stale zero: ${policy.reason}`,
       }
     }
@@ -351,6 +359,9 @@ export function resolveRetention(
 export function isAllowed(policy: ResolvedRetention, showUnknown: boolean): boolean {
   // Only an explicit out-of-scope/local marker bypasses filtering.
   if (policy.scoped === false) return true
+  // An expired ZDR claim is not "unknown": it must never be selectable, even
+  // when the user opts into showing models without a published policy.
+  if (policy.expired === true) return false
   if (policy.retention === "zero") return true
   if (policy.retention === "unknown") return showUnknown === true
   return false

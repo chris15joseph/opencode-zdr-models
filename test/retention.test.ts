@@ -262,7 +262,9 @@ test("snapshot age and validUntil conditions fail closed for stale zero policies
   assert.equal(resolveRetention("opencode-go", "kimi-k3", snapshot, { now: FRESH }).retention, "zero")
   const staleZero = resolveRetention("opencode-go", "kimi-k3", snapshot, { now: STALE })
   assert.equal(staleZero.retention, "unknown")
+  assert.equal(staleZero.expired, true)
   assert.equal(isAllowed(staleZero, false), false)
+  assert.equal(isAllowed(staleZero, true), false, "stale snapshot zeros are never selectable")
 
   const expiring = toPolicyMap([
     {
@@ -275,7 +277,10 @@ test("snapshot age and validUntil conditions fail closed for stale zero policies
       validUntil: "2026-11-01",
     },
   ])
-  assert.equal(resolveRetention("opencode", "expiring-model", expiring, { now: FRESH }).retention, "unknown")
+  const expired = resolveRetention("opencode", "expiring-model", expiring, { now: FRESH })
+  assert.equal(expired.retention, "unknown")
+  assert.equal(expired.expired, true)
+  assert.equal(isAllowed(expired, true), false, "expired conditional zeros are never selectable")
 
   const valid = toPolicyMap([
     {
@@ -309,12 +314,12 @@ test("snapshot age and validUntil conditions fail closed for stale zero policies
     }).retention,
     "zero",
   )
-  assert.equal(
-    resolveRetention("opencode-go", "deepseek-v4.1-flash", throughNov30, {
-      now: Date.parse("2026-12-01T00:00:00.000Z"),
-    }).retention,
-    "unknown",
-  )
+  const expiredDeepSeek = resolveRetention("opencode-go", "deepseek-v4.1-flash", throughNov30, {
+    now: Date.parse("2026-12-01T00:00:00.000Z"),
+  })
+  assert.equal(expiredDeepSeek.retention, "unknown")
+  assert.equal(expiredDeepSeek.expired, true)
+  assert.equal(isAllowed(expiredDeepSeek, true), false)
 
   // Staleness only invalidates a permissive zero; a stale 30d/not-zdr stays hidden.
   assert.equal(resolveRetention("opencode", "gpt-5", snapshot, { now: STALE }).retention, "30d")

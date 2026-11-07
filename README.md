@@ -1,7 +1,7 @@
-# opencode-zero-retention-models
+# opencode-zdr-models
 
-[![CI](https://github.com/chris15joseph/opencode-zero-retention-models/actions/workflows/ci.yml/badge.svg)](https://github.com/chris15joseph/opencode-zero-retention-models/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/opencode-zero-retention-models)](LICENSE)
+[![CI](https://github.com/chris15joseph/opencode-zdr-models/actions/workflows/ci.yml/badge.svg)](https://github.com/chris15joseph/opencode-zdr-models/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/opencode-zdr-models)](LICENSE)
 
 OpenCode 2 plugin that keeps only **0-day data-retention models** in `/models`.
 
@@ -20,7 +20,8 @@ It reads the published privacy tables for the `opencode` (Console) and
 ```
 
 Removing a model from the list does not clear a default or session model that
-was already selected. The plugin does not edit your config or session.
+was already selected. The plugin does not edit your config or session. Expired
+ZDR claims are always removed, even when `showUnknown` is enabled.
 
 ## Install
 
@@ -28,11 +29,11 @@ was already selected. The plugin does not edit your config or session.
 > appears on npm, install from Git:
 >
 > ```sh
-> opencode plugin add github:chris15joseph/opencode-zero-retention-models
+> opencode plugin add github:chris15joseph/opencode-zdr-models
 > ```
 
 ```sh
-opencode plugin add opencode-zero-retention-models
+opencode plugin add opencode-zdr-models
 ```
 
 Or add it to `opencode.json(c)` yourself:
@@ -40,7 +41,7 @@ Or add it to `opencode.json(c)` yourself:
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": ["opencode-zero-retention-models"]
+  "plugins": ["opencode-zdr-models"]
 }
 ```
 
@@ -49,7 +50,7 @@ Local checkout:
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": ["/absolute/path/to/opencode-zero-retention-models"]
+  "plugins": ["/absolute/path/to/opencode-zdr-models"]
 }
 ```
 
@@ -65,7 +66,7 @@ Use the object form to configure the plugin:
   "$schema": "https://opencode.ai/config.json",
   "plugins": [
     {
-      "package": "opencode-zero-retention-models",
+      "package": "opencode-zdr-models",
       "options": {
         "showUnknown": false,
         "refreshHours": 12,
@@ -81,7 +82,7 @@ Use the object form to configure the plugin:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `showUnknown` | `false` | Also show scoped models with no usable published policy. Never widens `30d`, `not-zdr`, or `training`. |
+| `showUnknown` | `false` | Also show scoped models with no published policy. Never shows expired conditional zeros or stale snapshot zeros, and never widens `30d`, `not-zdr`, or `training`. |
 | `refreshHours` | `12` | Cache TTL and refresh interval, clamped to `1..596` hours. |
 | `providers` | `["opencode", "opencode-go"]` | Complete list of provider IDs to filter. Replaces the default list. |
 | `verifiedZdr` | `[]` | Exact `{ providerID, modelID }` pairs covered by a confirmed ZDR/opt-out agreement. User attestation only; nothing verifies it against provider docs or your account. |
@@ -97,13 +98,15 @@ Invalid option shapes produce one warning and fall back to the listed default.
 - Both pages are fetched independently. A failed or incomplete page keeps the
   last-known-good data for that provider.
 - If live data is unavailable, the bundled snapshot remains active. A snapshot
-  `zero` is trusted for at most 30 days after capture; after that it becomes
-  `unknown` and is hidden unless `showUnknown: true`.
+  `zero` is trusted for at most 30 days after capture. Once that window ends,
+  the model is treated as expired and removed from selection until a live
+  policy arrives; `showUnknown: true` does not re-enable it.
 - Training dominates retention: a row marked `Yes`, `Yes*`, or opt-in training
   is hidden even when its retention cell says `0 days`.
 - Conditional `0 days*` policies are trusted only inside their published
   validity window. The Go catalog's DeepSeek entries are conditional through
-  **2026-11-30**; an expired or unparseable window becomes `unknown`.
+  **2026-11-30**; an expired or unparseable window is expired and cannot be
+  selected, even with `showUnknown: true`.
 - The model list reloads only when the resolved policy set changes.
 
 Snapshots were captured **2026-10-31** from
