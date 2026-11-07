@@ -1,8 +1,9 @@
 # Release checklist — `opencode-zero-retention-models`
 
-**Status: 1.0.0 release.** Publishing requires explicit approval from the
-repository owner (Christopher Joseph). CI in this repository never publishes;
-there is no publish workflow and no npm token configured.
+**Status: 1.0.0 published to npm on 2026-11-07.** Future publishing requires
+explicit approval from the repository owner (Christopher Joseph). CI in this
+repository never publishes; there is no publish workflow and no npm token
+configured.
 
 ## Supported runtime
 
